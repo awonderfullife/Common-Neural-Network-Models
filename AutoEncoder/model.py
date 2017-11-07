@@ -1,11 +1,15 @@
 import tensorflow as tf 
 from tensorflow.examples.tutorials.mnist import input_data
+import matplotlib.pyplot as plt
+import numpy as np
 
 class AutoEncoder:
-	def __init__(self, sess, data, batch_size=128):
+	def __init__(self, sess, data, batch_size=128, training_epochs=1, examples_to_show=128):
 		self.sess = sess
 		self.data = data
 		self.batch_size = batch_size
+		self.training_epochs = training_epochs
+		self.examples_to_show = examples_to_show
 
 		self.build_model()
 
@@ -15,8 +19,8 @@ class AutoEncoder:
 
 
 		input_img = tf.reshape(self.x, [self.batch_size, 28, 28, 1])
-		laten_vector = self.encoder(input_img)
-		self.output_img = self.decoder(laten_vector)
+		self.laten_vector = self.encoder(input_img)
+		self.output_img = self.decoder(self.laten_vector)
 
 		self.cost = tf.reduce_mean(tf.pow(self.output_img-input_img, 2))
 
@@ -29,11 +33,33 @@ class AutoEncoder:
 			init = tf.global_variables_initializer()
 		self.sess.run(init)
 
-		for i in range(10000):
-			batch_x, batch_label = self.data.train.next_batch(self.batch_size)
-			self.sess.run(optimizer, feed_dict={self.x:batch_x, self.keep_prob:0.75})
-			if i%50 == 0:
-				self.compute_l2_loss(self.data.test.images[:self.batch_size])
+		total_batch = int(self.data.train.num_examples/self.batch_size)
+		for epoch in range(self.training_epochs):
+			for i in range(total_batch):
+				batch_x, batch_label = self.data.train.next_batch(self.batch_size)
+				self.sess.run(optimizer, feed_dict={self.x:batch_x, self.keep_prob:0.75})
+				print i, total_batch
+			if epoch % 1 == 0:
+				print "Epoch: %04d cost="%(epoch+1), self.compute_l2_loss(self.data.test.images[:self.batch_size])
+
+		encoder_decoder = self.sess.run(self.output_img, feed_dict={self.x: self.data.test.images[:self.examples_to_show]})
+		f, a = plt.subplots(2, 10, figsize=(10, 2))
+		for i in range(10):
+			a[0][i].imshow(np.reshape(self.data.test.images[i], (28, 28)))
+			a[1][i].imshow(np.reshape(encoder_decoder[i], (28, 28)))
+		plt.show()
+
+		color_list = []
+		for list in self.data.test.labels:
+			for i in range(10):
+				if list[i] == 1:
+					color_list.append(i)
+					break
+
+		encoder_result = self.sess.run(self.laten_vector, feed_dict={self.x: self.data.test.images[:self.examples_to_show]})
+		plt.scatter(encoder_result[:, 0], encoder_result[:, 1], c=color_list[:self.examples_to_show])
+		plt.colorbar()
+		plt.show()
 
 	def encoder(self, input_img):
 		conv1_out = tf.layers.conv2d(inputs=input_img, filters=32, kernel_size=[5,5], padding="same", activation=tf.nn.relu)
@@ -63,7 +89,7 @@ class AutoEncoder:
 	def compute_l2_loss(self, images):
 		input_img = tf.reshape(images, [self.batch_size, 28, 28, 1])
 		l2_loss = tf.reduce_mean(tf.pow(input_img - self.output_img, 2))
-		print self.sess.run(l2_loss, feed_dict={self.x:images, self.keep_prob:0.75})
+		return self.sess.run(l2_loss, feed_dict={self.x:images, self.keep_prob:0.75})
 
 	def deconv2(self, batch_input, out_channels, filter_name):
 		batch, in_height, in_width, in_channels = [int(d) for d in batch_input.get_shape()]
@@ -90,4 +116,3 @@ if __name__ == '__main__':
 	main()
 
 # TODO: need test number freeout from self.batch_size
-# TODO: need visulize the result
