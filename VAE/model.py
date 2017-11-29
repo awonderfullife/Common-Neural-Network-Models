@@ -41,7 +41,7 @@ class VAE:
 		                2.0 * tf.log(stddev + epsilon) - 1.0))
 
 	def __get_reconstruction_cost(self, output_tensor, target_tensor, epsilon=1e-8):
-		return tf.reduce_sum(-target_tensor * tf.log(output_tensor + epsilon) -
+		return tf.reduce_mean(-target_tensor * tf.log(output_tensor + epsilon) -
 			(1.0 - target_tensor) * tf.log(1.0 - output_tensor + epsilon))
 
 	def update_params(self, input_tensor):
@@ -53,13 +53,11 @@ class VAE:
 		net = layers.conv2d(net, 64, 5, stride=2)
 		net = layers.conv2d(net, 128, 5, stride=2)
 		net = layers.dropout(net, keep_prob=0.9)
-		net = layers.flatten(net)  # muti level to single level
+		net = layers.flatten(net)  # [-1, a, b, c] ==> [-1, a*b*c]
 		return layers.fully_connected(net, output_size, activation_fn=None)
 
 	def decoder(self, input_tensor):
-		print input_tensor.get_shape()
 		net = tf.expand_dims(input_tensor, 1) # [-1, output_size] ==> [-1, 1, output_size]
-		print net.get_shape()
 		net = tf.expand_dims(net, 1) # [-1, 1, output_size, 1] ==> [-1, 1, 1, output_size]
 		net = layers.conv2d_transpose(net, 128, 3, padding='VALID')
 		net = layers.conv2d_transpose(net, 64, 5, padding='VALID')
